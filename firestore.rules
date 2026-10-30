@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomPath(roomId) {
+      return /databases/$(database)/documents/rooms/$(roomId);
+    }
+
+    function isHost(roomId) {
+      return exists(/databases/$(database)/documents/rooms/$(roomId)/hosts/$(request.auth.uid));
+    }
+
+    function hasExpiry() {
+      return request.resource.data.expireAt is timestamp;
+    }
+
+    match /drafts/{draftId} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && hasExpiry()
+        && request.resource.data.bars is list
+        && request.resource.data.roomId == null;
+      allow update: if signedIn()
+        && resource.data.roomId == null
+        && hasExpiry()
+        && (request.resource.data.roomId == null
+          || getAfter(roomPath(request.resource.data.roomId)).data.hostUid == request.auth.uid);
+    }
+
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && hasExpiry()
+        && getAfter(roomPath(request.resource.data.roomId)).data.hostUid == request.auth.uid;
+      allow update: if signedIn()
+        && isHost(resource.data.roomId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['expireAt']);
+    }
+
+    match /rooms/{roomId} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && hasExpiry()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'lobby';
+      allow update: if signedIn()
+        && isHost(roomId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'endedAt', 'expireAt'])
+        && ((resource.data.status == 'lobby' && request.resource.data.status == 'playing')
+          || (resource.data.status == 'playing' && request.resource.data.status == 'ended'));
+
+      match /hosts/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && hasExpiry()
+          && getAfter(/databases/$(database)/documents/drafts/$(request.resource.data.draftId)).data.roomId == roomId;
+      }
+
+      match /players/{playerId} {
+        function room() {
+          return get(roomPath(roomId)).data;
+        }
+
+        function ownScoreEdit() {
+          let after = request.resource.data;
+          let hole = after.lastHole;
+          let key = string(hole);
+          return resource.data.uid == request.auth.uid
+            && room().status == 'playing'
+            && hasExpiry()
+            && after.diff(resource.data).affectedKeys().hasOnly(['sips', 'ticks', 'lastHole', 'expireAt'])
+            && hole is int
+            && hole >= 0
+            && hole < room().holes.size()
+            && after.sips.diff(resource.data.sips).affectedKeys().hasOnly([key])
+            && after.ticks.diff(resource.data.ticks).affectedKeys().hasOnly([key])
+            && (!(key in after.sips) || (after.sips[key] is int && after.sips[key] >= 0))
+            && (!(key in after.ticks) || (after.ticks[key] is bool && room().holes[hole].challenge != null));
+        }
+
+        function claimRow() {
+          return room().status in ['lobby', 'playing']
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid']);
+        }
+
+        function hostExpiryEdit() {
+          return isHost(roomId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['expireAt']);
+        }
+
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && room().status == 'lobby'
+          && hasExpiry()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 24
+          && request.resource.data.keys().hasOnly(['name', 'uid', 'sips', 'ticks', 'expireAt'])
+          && request.resource.data.sips == {}
+          && request.resource.data.ticks == {};
+        allow update: if signedIn() && (ownScoreEdit() || claimRow() || hostExpiryEdit());
+      }
+    }
+  }
+}
