@@ -2,9 +2,7 @@
 
 ## Status
 
-Approved, not started. Nothing has been built, and this file isn't committed yet. Start at build step 1, and commit this file to `dev` as part of that step.
-
-Standing approval: commit and push to `dev` without review until the build is done. Use Playwright to check the app while building it.
+Finished. The app is built and live at https://pubgolf-maker.web.app.
 
 ## Context
 
