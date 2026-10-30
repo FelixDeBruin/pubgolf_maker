@@ -62,5 +62,5 @@ export default function Room({ roomId }: { roomId: string }) {
 
   if (room.status === 'lobby') return <Lobby room={room} players={players} isHost={isHost} me={me} />
   if (room.status === 'playing') return <Card room={room} players={players} isHost={isHost} me={me} />
-  return <Scoreboard room={room} players={players} />
+  return <Scoreboard room={room} players={players} isHost={isHost} />
 }

@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react'
 import ScoreCard from '../components/ScoreCard'
-import { toHoles } from '../lib/game'
+import { forgetGame, toHoles } from '../lib/game'
 import type { Player, Room } from '../lib/game'
+import { navigate } from '../lib/nav'
 import { rankPlayers, resultLabel } from '../lib/scoring'
 
 const REVEAL_MS = 1600
 
-export default function Scoreboard({ room, players }: { room: Room; players: Player[] }) {
+interface Props {
+  room: Room
+  players: Player[]
+  isHost: boolean
+}
+
+export default function Scoreboard({ room, players, isHost }: Props) {
   const ranked = rankPlayers(toHoles(room.holes), players)
   const podium = ranked.slice(0, 3)
   const rest = ranked.slice(3)
@@ -72,6 +79,17 @@ export default function Scoreboard({ room, players }: { room: Room; players: Pla
       <button className="button loud" onClick={() => setShowCard(true)}>
         See the full card
       </button>
+      {isHost && (
+        <button
+          className="button loud"
+          onClick={() => {
+            forgetGame()
+            navigate('/')
+          }}
+        >
+          Finish and exit
+        </button>
+      )}
     </main>
   )
 }
