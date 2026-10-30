@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ExitButton from '../components/ExitButton'
 import { joinRoom, startGame } from '../lib/game'
 import type { Player, Room } from '../lib/game'
 
@@ -84,6 +85,7 @@ export default function Lobby({ room, players, isHost, me }: Props) {
       ) : (
         <p className="lobby-wait">Waiting for the host to start...</p>
       )}
+      <ExitButton label="Exit game" className="button loud" />
     </main>
   )
 }

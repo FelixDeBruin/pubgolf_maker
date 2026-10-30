@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ExitButton from '../components/ExitButton'
 import ScoreCard from '../components/ScoreCard'
 import { endGame, saveHole, toHoles } from '../lib/game'
 import type { Player, Room } from '../lib/game'
@@ -57,6 +58,7 @@ export default function Card({ room, players, isHost, me }: Props) {
           End the game
         </button>
       )}
+      <ExitButton label="Exit game" className="button" />
 
       {confirming && (
         <div className="sheet-back">

@@ -2,7 +2,9 @@ import {
   Timestamp,
   collection,
   deleteDoc,
+  disableNetwork,
   doc,
+  enableNetwork,
   getDoc,
   getDocs,
   limit,
@@ -189,14 +191,37 @@ export async function findRoom(code: string): Promise<Room | null> {
 
 export function watchRoom(roomId: string, onChange: (room: Room | null) => void): () => void {
   return onSnapshot(doc(db, 'rooms', roomId), (snap) => {
+    if (!snap.exists() && snap.metadata.fromCache) return
     onChange(snap.exists() ? ({ id: snap.id, ...snap.data() } as Room) : null)
   })
 }
 
-export function watchPlayers(roomId: string, onChange: (players: Player[]) => void): () => void {
-  return onSnapshot(collection(db, 'rooms', roomId, 'players'), (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player))
-  })
+export function watchPlayers(
+  roomId: string,
+  onChange: (players: Player[], fromServer: boolean) => void,
+): () => void {
+  return onSnapshot(
+    collection(db, 'rooms', roomId, 'players'),
+    { includeMetadataChanges: true },
+    (snap) => {
+      if (snap.empty && snap.metadata.fromCache) return
+      const players = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player)
+      onChange(players, !snap.metadata.fromCache)
+    },
+  )
+}
+
+let reconnecting = false
+
+export async function reconnect(): Promise<void> {
+  if (reconnecting) return
+  reconnecting = true
+  try {
+    await disableNetwork(db)
+    await enableNetwork(db)
+  } finally {
+    reconnecting = false
+  }
 }
 
 export type JoinResult = 'joined' | 'taken' | 'isThisYou' | 'closed'
