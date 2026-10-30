@@ -8,11 +8,15 @@ import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import {
   Timestamp,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  limit,
+  query,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
@@ -101,6 +105,58 @@ describe('drafts and codes', () => {
 
   it('blocks pointing a draft at someone else\'s room', async () => {
     await assertFails(updateDoc(doc(asUser('x'), 'drafts/open'), { roomId: 'r1', expireAt }))
+  })
+})
+
+describe('deleting old games', () => {
+  const past = Timestamp.fromMillis(Date.now() - 86400000)
+  const cutoff = Timestamp.fromMillis(Date.now() - 300000)
+  const expiredIn = (db: ReturnType<typeof asUser>, name: string) =>
+    query(collection(db, name), where('expireAt', '<', cutoff), limit(20))
+
+  async function expireRoom() {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await updateDoc(doc(db, 'rooms/r1'), { expireAt: past })
+      await updateDoc(doc(db, 'codes/KX47'), { expireAt: past })
+      await updateDoc(doc(db, 'drafts/secret'), { expireAt: past })
+    })
+  }
+
+  it('lets anyone find and delete expired documents', async () => {
+    await seed('ended')
+    await expireRoom()
+    const db = asUser('x')
+    await assertSucceeds(getDocs(expiredIn(db, 'rooms')))
+    await assertSucceeds(getDocs(expiredIn(db, 'codes')))
+    await assertSucceeds(getDocs(expiredIn(db, 'drafts')))
+    await assertSucceeds(getDocs(collection(db, 'rooms/r1/hosts')))
+    await assertSucceeds(deleteDoc(doc(db, 'rooms/r1/players/ann')))
+    await assertSucceeds(deleteDoc(doc(db, 'rooms/r1/hosts/host')))
+    await assertSucceeds(deleteDoc(doc(db, 'rooms/r1')))
+    await assertSucceeds(deleteDoc(doc(db, 'codes/KX47')))
+    await assertSucceeds(deleteDoc(doc(db, 'drafts/secret')))
+  })
+
+  it('blocks deleting anything still live', async () => {
+    await seed('playing')
+    const db = asUser('x')
+    await assertFails(deleteDoc(doc(db, 'rooms/r1')))
+    await assertFails(deleteDoc(doc(db, 'rooms/r1/players/ann')))
+    await assertFails(deleteDoc(doc(db, 'rooms/r1/hosts/host')))
+    await assertFails(deleteDoc(doc(db, 'codes/KX47')))
+    await assertFails(deleteDoc(doc(db, 'drafts/secret')))
+  })
+
+  it('blocks listing hosts of a live room', async () => {
+    await seed('playing')
+    await assertFails(getDocs(collection(asUser('x'), 'rooms/r1/hosts')))
+  })
+
+  it('blocks signed-out cleanup', async () => {
+    await seed('ended')
+    await expireRoom()
+    await assertFails(deleteDoc(doc(anon(), 'rooms/r1')))
   })
 })
 

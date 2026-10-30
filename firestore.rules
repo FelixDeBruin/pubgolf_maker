@@ -18,6 +18,14 @@ service cloud.firestore {
       return request.resource.data.expireAt is timestamp;
     }
 
+    function isExpired() {
+      return resource.data.expireAt < request.time;
+    }
+
+    function roomExpired(roomId) {
+      return get(roomPath(roomId)).data.expireAt < request.time;
+    }
+
     function validGame(title, bars) {
       return title is string
         && title.size() <= 60
@@ -27,6 +35,7 @@ service cloud.firestore {
 
     match /drafts/{draftId} {
       allow get: if signedIn();
+      allow list, delete: if signedIn() && isExpired();
       allow create: if signedIn()
         && hasExpiry()
         && validGame(request.resource.data.title, request.resource.data.bars)
@@ -41,6 +50,7 @@ service cloud.firestore {
 
     match /codes/{code} {
       allow get: if signedIn();
+      allow list, delete: if signedIn() && isExpired();
       allow create: if signedIn()
         && hasExpiry()
         && code.size() == 4
@@ -53,6 +63,7 @@ service cloud.firestore {
 
     match /rooms/{roomId} {
       allow get: if signedIn();
+      allow list, delete: if signedIn() && isExpired();
       allow create: if signedIn()
         && hasExpiry()
         && validGame(request.resource.data.title, request.resource.data.holes)
@@ -67,6 +78,7 @@ service cloud.firestore {
 
       match /hosts/{uid} {
         allow get: if signedIn() && request.auth.uid == uid;
+        allow list, delete: if signedIn() && roomExpired(roomId);
         allow create: if signedIn()
           && request.auth.uid == uid
           && hasExpiry()
@@ -107,6 +119,7 @@ service cloud.firestore {
         }
 
         allow read: if signedIn();
+        allow delete: if signedIn() && roomExpired(roomId);
         allow create: if signedIn()
           && room().status == 'lobby'
           && hasExpiry()

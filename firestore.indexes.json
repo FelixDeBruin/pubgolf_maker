@@ -1,10 +1,4 @@
 {
   "indexes": [],
-  "fieldOverrides": [
-    { "collectionGroup": "drafts", "fieldPath": "expireAt", "ttl": true, "indexes": [] },
-    { "collectionGroup": "codes", "fieldPath": "expireAt", "ttl": true, "indexes": [] },
-    { "collectionGroup": "rooms", "fieldPath": "expireAt", "ttl": true, "indexes": [] },
-    { "collectionGroup": "hosts", "fieldPath": "expireAt", "ttl": true, "indexes": [] },
-    { "collectionGroup": "players", "fieldPath": "expireAt", "ttl": true, "indexes": [] }
-  ]
+  "fieldOverrides": []
 }

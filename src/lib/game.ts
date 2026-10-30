@@ -1,14 +1,18 @@
 import {
   Timestamp,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
+  query,
   runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { db, ensureSignedIn } from './firebase'
@@ -54,6 +58,8 @@ export interface Player extends PlayerCard {
 const DAY_MS = 24 * 60 * 60 * 1000
 const UNFINISHED_DAYS = 30
 const ENDED_DAYS = 15
+const CLEANUP_LIMIT = 20
+const CLOCK_MARGIN_MS = 5 * 60 * 1000
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const LAST_GAME_KEY = 'pubgolf.lastGame'
 
@@ -87,8 +93,27 @@ export function playerIdFor(name: string): string {
   return encodeURIComponent(name.trim().toLowerCase())
 }
 
+async function cleanUpExpired(): Promise<void> {
+  const cutoff = Timestamp.fromMillis(Date.now() - CLOCK_MARGIN_MS)
+  const expired = (name: string) =>
+    getDocs(query(collection(db, name), where('expireAt', '<', cutoff), limit(CLEANUP_LIMIT)))
+
+  for (const room of (await expired('rooms')).docs) {
+    for (const name of ['players', 'hosts']) {
+      const rows = await getDocs(collection(room.ref, name))
+      await Promise.all(rows.docs.map((row) => deleteDoc(row.ref)))
+    }
+    await deleteDoc(room.ref)
+  }
+  for (const name of ['codes', 'drafts']) {
+    const rows = await expired(name)
+    await Promise.all(rows.docs.map((row) => deleteDoc(row.ref)))
+  }
+}
+
 export async function createDraft(): Promise<string> {
   await ensureSignedIn()
+  cleanUpExpired().catch(() => undefined)
   const id = randomId(24)
   await setDoc(doc(db, 'drafts', id), {
     title: 'Stellenbosch Pub Golf',
