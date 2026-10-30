@@ -93,6 +93,12 @@ describe('drafts and codes', () => {
     await assertFails(updateDoc(doc(asUser('x'), 'drafts/secret'), { title: 'New', expireAt }))
   })
 
+  it('blocks oversized drafts', async () => {
+    const bars = Array.from({ length: 31 }, () => holes[0])
+    await assertFails(updateDoc(doc(asUser('x'), 'drafts/open'), { bars, expireAt }))
+    await assertFails(updateDoc(doc(asUser('x'), 'drafts/open'), { title: 'x'.repeat(61), expireAt }))
+  })
+
   it('blocks pointing a draft at someone else\'s room', async () => {
     await assertFails(updateDoc(doc(asUser('x'), 'drafts/open'), { roomId: 'r1', expireAt }))
   })
@@ -210,6 +216,11 @@ describe('scores', () => {
     await seed('playing')
     await assertFails(updateDoc(ann(), edit({ 0: 2.5 }, {}, 0)))
     await assertFails(updateDoc(ann(), edit({ 0: -1 }, {}, 0)))
+  })
+
+  it('blocks absurd sip counts', async () => {
+    await seed('playing')
+    await assertFails(updateDoc(ann(), edit({ 0: 100 }, {}, 0)))
   })
 
   it('blocks a tick on a hole with no challenge', async () => {

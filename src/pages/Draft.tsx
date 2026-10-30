@@ -95,7 +95,7 @@ export default function Draft({ draftId }: { draftId: string }) {
     <main className="page">
       <label className="field">
         Game name
-        <input value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
       </label>
 
       <div className="save-row">
@@ -227,7 +227,7 @@ export default function Draft({ draftId }: { draftId: string }) {
         </section>
       ))}
 
-      <button className="button" onClick={() => setBars([...bars, newBar()])}>
+      <button className="button" disabled={bars.length >= 30} onClick={() => setBars([...bars, newBar()])}>
         Add another bar
       </button>
       <button className="button primary" onClick={open} disabled={!ready}>

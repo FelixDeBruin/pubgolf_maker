@@ -129,7 +129,7 @@ function Picker({ holeNumber, room, sips, ticked, onChange, onClose }: PickerPro
             −
           </button>
           <span>{sips ?? '-'}</span>
-          <button aria-label="One more" onClick={() => onChange((sips ?? 0) + 1, tick)}>
+          <button aria-label="One more" disabled={sips === 99} onClick={() => onChange((sips ?? 0) + 1, tick)}>
             +
           </button>
         </div>

@@ -18,15 +18,23 @@ service cloud.firestore {
       return request.resource.data.expireAt is timestamp;
     }
 
+    function validGame(title, bars) {
+      return title is string
+        && title.size() <= 60
+        && bars is list
+        && bars.size() <= 30;
+    }
+
     match /drafts/{draftId} {
       allow get: if signedIn();
       allow create: if signedIn()
         && hasExpiry()
-        && request.resource.data.bars is list
+        && validGame(request.resource.data.title, request.resource.data.bars)
         && request.resource.data.roomId == null;
       allow update: if signedIn()
         && resource.data.roomId == null
         && hasExpiry()
+        && validGame(request.resource.data.title, request.resource.data.bars)
         && (request.resource.data.roomId == null
           || getAfter(roomPath(request.resource.data.roomId)).data.hostUid == request.auth.uid);
     }
@@ -35,6 +43,8 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create: if signedIn()
         && hasExpiry()
+        && code.size() == 4
+        && request.resource.data.keys().hasOnly(['roomId', 'expireAt'])
         && getAfter(roomPath(request.resource.data.roomId)).data.hostUid == request.auth.uid;
       allow update: if signedIn()
         && isHost(resource.data.roomId)
@@ -45,6 +55,7 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create: if signedIn()
         && hasExpiry()
+        && validGame(request.resource.data.title, request.resource.data.holes)
         && request.resource.data.hostUid == request.auth.uid
         && request.resource.data.status == 'lobby';
       allow update: if signedIn()
@@ -80,7 +91,7 @@ service cloud.firestore {
             && hole < room().holes.size()
             && after.sips.diff(resource.data.sips).affectedKeys().hasOnly([key])
             && after.ticks.diff(resource.data.ticks).affectedKeys().hasOnly([key])
-            && (!(key in after.sips) || (after.sips[key] is int && after.sips[key] >= 0))
+            && (!(key in after.sips) || (after.sips[key] is int && after.sips[key] >= 0 && after.sips[key] <= 99))
             && (!(key in after.ticks) || (after.ticks[key] is bool && room().holes[hole].challenge != null));
         }
 
